@@ -13,7 +13,6 @@ import audmetric
 from sklearn.metrics import balanced_accuracy_score, recall_score
 from torch.utils.data import DataLoader
 from datasets import concatenate_datasets
-# from data_prep.datagen import create_data_dictionary, create_dataset_MEAD, create_dataset
 
 device = torch.device("cuda:0")
 
@@ -86,11 +85,6 @@ class Trainer():
         wavlm_param = self.get_upstream_param()
         self.downsample_rate = wavlm_param['downsample_rate']
 
-        # move it to four gpu
-        print(f"Using {config.num_gpus} gpu to train")
-        if config.num_gpus > 1:
-            self.wavlm = nn.DataParallel(self.wavlm, device_ids=list(range(config.num_gpus)))
-
         self.clf = EmotionClassifier(layer_num=wavlm_param['layer_num'], emb_dim=wavlm_param['emb_dim'],num_labels=config.num_labels)
         if self.config.load_path!='':
             self.load_model()
@@ -102,7 +96,7 @@ class Trainer():
 
         self.write = config.write
         if args.use_wandb:
-            wandb_save_path = "/dataHDD/ezhou12/dump"
+            wandb_save_path = "/dump"
             wandb.init(project=args.wandb_name,config=args, dir=wandb_save_path)
         
     
@@ -156,12 +150,13 @@ class Trainer():
             # downstream
             hiddens = outputs.hidden_states
             feature_length = self.get_feature_seq_length(input['attention_mask'])
-            pred, final_emb = self.clf(hiddens, feature_length)
-            pred = F.softmax(pred,dim=1)
 
+            # 【修改点 1】：获取 logits
+            pred_logits, final_emb = self.clf(hiddens, feature_length) 
             label = torch.tensor(batch['emotion'],device=device)
-            # label_onehot = F.one_hot(label,self.num_labels).float()
-            loss = self.loss(pred,label)
+            
+            # 【修改点 3】：直接将 logits 传给损失函数
+            loss = self.loss(pred_logits, label) 
 
             if is_training:
                 loss.backward()
@@ -169,8 +164,10 @@ class Trainer():
             
             # statistics 
             running_loss += loss.item()
-            running_corrects += sum(pred.argmax(1).cpu().numpy() == label.cpu().numpy())
-            if i % 100 ==0:
+            # argmax 对 logits 和 probability 结果是一样的，所以这里可以直接用 pred_logits
+            running_corrects += sum(pred_logits.argmax(1).cpu().numpy() == label.cpu().numpy())
+
+            if i % 10 ==0:
                 print(f"Epoch {epoch}, batch {i}: loss: {loss.item()}")
         
         epoch_loss = running_loss / len(dataloader.dataset)
@@ -288,46 +285,6 @@ class Trainer():
         checkpoint = torch.load(self.config.load_path)
         self.clf.load_state_dict(checkpoint['model_state_dict'])
 
-def load_cremad():
-    with open("/dataHDD/ezhou12/CREMA-D/audio_dataset.pickle","rb") as f:
-        dataset = pickle.load(f)
-    return dataset
-def save_cremad(embeddings,dataset):
-    save_data = {"embeddings":embeddings,"emotion":dataset['emotion'],"speaker": dataset['speaker'], "utterance": dataset['utterance']}
-    with open("/dataHDD/ezhou12/CREMA-D/embeddings.pickle","wb") as f:
-        pickle.dump(save_data,f)
-def load_msp():
-    with open("/dataHDD/ezhou12/MSP/audio_full_dataset.pickle","rb") as f:
-        dataset = pickle.load(f)
-    return dataset
-def load_mead():
-    with open("/dataHDD/ezhou12/MEAD/audio_dataset.pickle", "rb") as f:
-        dataset = pickle.load(f)
-    return dataset
-def load_emodb():
-    with open("/dataHDD/ezhou12/EMODB/audio_dataset.pickle", "rb") as f:
-        dataset = pickle.load(f)
-    return dataset
-def save_emodb(embeddings,dataset):
-    save_data = {"embeddings":embeddings,"emotion":dataset['emotion'],"speaker": dataset['speaker'], "utterance": dataset['utterance']}
-    with open("/dataHDD/ezhou12/EMODB/embeddings.pickle","wb") as f:
-        pickle.dump(save_data,f)
-def save_mead(embeddings,dataset):
-    save_data = {"embeddings":embeddings,"emotion":dataset['emotion'],"intensity":dataset['intensity'], "speaker": dataset['speaker'], "index": dataset['index']}
-    with open("/dataHDD/ezhou12/MEAD/embeddings.pickle","wb") as f:
-        pickle.dump(save_data,f) 
-def save_msp(embeddings,dataset):
-    save_data = {"embeddings":embeddings,"emotion":dataset['emotion'],"V": dataset['V'], "A": dataset['A'],"D":dataset['D']}
-    with open("/dataHDD/ezhou12/MSP/embeddings.pickle","wb") as f:
-        pickle.dump(save_data,f) 
-def save_msp_partial(embeddings, status,dataset):
-    save_data = {"embeddings":embeddings,"emotion":dataset['emotion'],"V": dataset['V'], "A": dataset['A'],"D":dataset['D'], "status":status}
-    with open("/home/enting/Documents/EmoDR/data/msp-podcast/embeddings.pickle","wb") as f:
-        pickle.dump(save_data,f) 
-def load_iemocap():
-    with open("/dataHDD/ezhou12/IEMOCAP/IEMOCAP_full_release/audio_full_dataset.pickle","rb") as f:
-        dataset = pickle.load(f)
-    return dataset
 def save_iemocap(embeddings,status,dataset):
     save_data = {"embeddings":embeddings,"emotion":dataset['emotion'],"V": dataset['V'], "A": dataset['A'],"D":dataset['D'],"status":status}
     with open("/home/enting/Documents/EmoDR/data/embeddings_spk.pickle","wb") as f:
@@ -361,17 +318,15 @@ if __name__ == "__main__":
     parser.add_argument('--name',type=str, default='tmp', help="folder name to store the model file")
     parser.add_argument('--lr', type=float, default=1e-5, help='learning rate for optimizer')
     parser.add_argument('--reg-lr', type=float, default=1e-6, help='learning rate for optimizer')
-    parser.add_argument('--num-epochs', type=int, default=10, help='number of epochs for training')
-    parser.add_argument('--batch-size', type=int, default=32, help='batch size for training')
+    parser.add_argument('--num-epochs', type=int, default=21, help='number of epochs for training')
+    parser.add_argument('--batch-size', type=int, default=16, help='batch size for training')
 
-    parser.add_argument('--data', type=str, default='/dataHDD/ezhou12/CREMA-D/audio_dataset.pickle', help='path to training data')
+    parser.add_argument('--data', type=str, default='/data/audio_dataset.pickle', help='path to training data')
     parser.add_argument('--num-labels', type=int, default=6, help='number of categories in data')
-    parser.add_argument('--save-path', type=str, default='/dataHDD/ezhou12/dump/', help='path to save trained model')
-    # parser.add_argument('--load-path', type=str, default='/dataHDD/ezhou12/dump/crema/model_epoch_20.pth', help='path to load pretrained model')
+    parser.add_argument('--save-path', type=str, default='/dump/', help='path to save trained model')
     parser.add_argument('--load-path', type=str, default='', help='path to load pretrained model') 
 
     parser.add_argument('--device', type=str, default='cuda:0', help='running device')
-    parser.add_argument('--num-gpus', type=int, default=4, help='number of gpu to train on')
 
     parser.add_argument('--use-wandb', action='store_true')
     parser.add_argument('--wandb-name', type=str, default='tmp', help='wandb name')
@@ -393,6 +348,3 @@ if __name__ == "__main__":
         trainer.eval()
     else:
         trainer.inference()                                     
-
-
-

@@ -32,19 +32,19 @@ def ld_emodb():
 # utils 
 def load_data(name):
     if name=="iemocap":
-        with open("./data/embeddings_spk.pickle", 'rb') as f:
+        with open("./dump/tmp/embeddings.pickle", 'rb') as f:
             data = pickle.load(f)
-        init_global = ld_iemocap()
+        init_global = ld_iemocap_partial5()
     elif name=="iemocap_all":
         with open("./data/embeddings_spk_all.pickle", 'rb') as f:
             data = pickle.load(f)
         init_global = ld_iemocap_full() 
     elif name=="iemocap_partial":
-        with open("dump/iemocap_partial/embeddings.pickle", 'rb') as f:
+        with open("./dump/tmp/embeddings.pickle", 'rb') as f:
             data = pickle.load(f)
         init_global = ld_iemocap_partial() 
     elif name=="iemocap_partial5":
-        with open("dump/iemocap_partial5/embeddings.pickle", 'rb') as f:
+        with open("./dump/tmp/embeddings.pickle", 'rb') as f:
             data = pickle.load(f)
         init_global = ld_iemocap_partial5() 
     elif name=="iemocap_partial4":
@@ -84,7 +84,7 @@ class AVLearner:
         self.reducer.fit(embedding, labels)
     
     def transform(self, embedding):
-        return self.reducer.tranform(embedding)
+        return self.reducer.transform(embedding, None, None)
     
     def fit_transform(self, embedding, labels, anchor_mappings):
         init = self.reducer.set_custom_intialization(embedding, labels, anchor_mappings)
@@ -104,7 +104,62 @@ def train_inference(data):
 
     return train_y, test_y
 
+def calc_ccc(x, y):
+    """
+    计算 Concordance Correlation Coefficient (CCC)
+    x: 预测值 (Prediction)
+    y: 真实值 (Ground Truth)
+    """
+    x_mean = np.mean(x)
+    y_mean = np.mean(y)
+    
+    # 协方差 (Covariance)
+    covariance = np.mean((x - x_mean) * (y - y_mean))
+    
+    # 方差 (Variance)
+    x_var = np.var(x)
+    y_var = np.var(y)
+    
+    # CCC 公式
+    ccc = (2 * covariance) / (x_var + y_var + (x_mean - y_mean)**2)
+    return ccc
+
 
 if __name__ == "__main__":
-    data = load_data('iemocap')
+    # 注意：如果你使用的是5分类数据，请确保 load_data 内部使用的是适配5分类锚点的版本
+    # 或者直接改为 data = load_data('iemocap_partial5')
+    data = load_data('iemocap_partial5') 
+    
+    # 获取降维后的预测坐标
     train_y, test_y = train_inference(data)
+
+    # 1. 提取测试集的掩码 (Mask)，确保和 train_inference 内部逻辑一致
+    data = data['data']
+    status = np.array(data['status'])
+    test_mask = (status == 'test')
+
+    # 2. 提取测试集的真实标签 (Ground Truth)
+    # 原始数据通常是 1-5 分
+    gt_val = np.array(data['V'])[test_mask]
+    gt_aro = np.array(data['A'])[test_mask]
+
+    # 3. 归一化真实标签 (1~5 -> -1~1)
+    # 因为 UMAP 的锚点是定义在 -1~1 之间的，如果不归一化，CCC 会因为均值差异过大而极低
+    gt_val_norm = (gt_val - 3.0) / 2.0
+    gt_aro_norm = (gt_aro - 3.0) / 2.0
+
+    # 4. 提取预测值
+    # test_y 的第0列对应 Valence (X轴), 第1列对应 Arousal (Y轴)
+    pred_val = test_y[:, 0]
+    pred_aro = test_y[:, 1]
+
+    # 5. 计算 CCC
+    ccc_v = calc_ccc(pred_val, gt_val_norm)
+    ccc_a = calc_ccc(pred_aro, gt_aro_norm)
+
+    print("\n" + "="*40)
+    print(" >>> 最终评估结果 (CCC Metrics) <<<")
+    print("-" * 40)
+    print(f" Valence CCC: {ccc_v:.4f}")
+    print(f" Arousal CCC: {ccc_a:.4f}")
+    print("="*40 + "\n")

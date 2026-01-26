@@ -397,7 +397,7 @@ def main(data_dir):
 
 
 if __name__ == "__main__":
-    path = "/home/enting/Documents/EmoDR/data/IEMOCAP_full_release"
+    path = "/home/victor/DataSet/IEMOCAP_full_release"
     partial4_main(path)
     partial5_main(path)
     partial_main(path)
