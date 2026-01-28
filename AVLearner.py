@@ -84,7 +84,7 @@ class AVLearner:
         self.reducer.fit(embedding, labels)
     
     def transform(self, embedding):
-        return self.reducer.transform(embedding, None, None)
+        return self.reducer.transform(embedding)
     
     def fit_transform(self, embedding, labels, anchor_mappings):
         init = self.reducer.set_custom_intialization(embedding, labels, anchor_mappings)
@@ -143,19 +143,14 @@ if __name__ == "__main__":
     gt_val = np.array(data['V'])[test_mask]
     gt_aro = np.array(data['A'])[test_mask]
 
-    # 3. 归一化真实标签 (1~5 -> -1~1)
-    # 因为 UMAP 的锚点是定义在 -1~1 之间的，如果不归一化，CCC 会因为均值差异过大而极低
-    gt_val_norm = (gt_val - 3.0) / 2.0
-    gt_aro_norm = (gt_aro - 3.0) / 2.0
-
     # 4. 提取预测值
     # test_y 的第0列对应 Valence (X轴), 第1列对应 Arousal (Y轴)
     pred_val = test_y[:, 0]
     pred_aro = test_y[:, 1]
 
     # 5. 计算 CCC
-    ccc_v = calc_ccc(pred_val, gt_val_norm)
-    ccc_a = calc_ccc(pred_aro, gt_aro_norm)
+    ccc_v = calc_ccc(pred_val, gt_val)
+    ccc_a = calc_ccc(pred_aro, gt_aro)
 
     print("\n" + "="*40)
     print(" >>> 最终评估结果 (CCC Metrics) <<<")

@@ -2903,7 +2903,7 @@ class UMAP(BaseEstimator):
                 )
             )
 
-    def transform(self, X, label, anchors, force_all_finite=True):
+    def transform(self, X, label=None, anchors=None, force_all_finite=True):
         """Transform X into the existing embedded space and return that
         transformed output.
 

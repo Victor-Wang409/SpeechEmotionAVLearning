@@ -322,7 +322,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch-size', type=int, default=16, help='batch size for training')
 
     parser.add_argument('--data', type=str, default='/data/audio_dataset.pickle', help='path to training data')
-    parser.add_argument('--num-labels', type=int, default=6, help='number of categories in data')
+    parser.add_argument('--num-labels', type=int, default=5, help='number of categories in data')
     parser.add_argument('--save-path', type=str, default='/dump/', help='path to save trained model')
     parser.add_argument('--load-path', type=str, default='', help='path to load pretrained model') 
 
