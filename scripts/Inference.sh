@@ -1,7 +1,7 @@
-python wavLM.py --mode inference \
-                --num-labels 5 \
-                --load-path /home/victor/Github/SpeechEmotionAVLearning/dump/train/model_last_epoch.pth \
-                --save-path ./dump \
-                --batch-size 16 \
-                --data /home/victor/Github/SpeechEmotionAVLearning/data/audio_partial5_train_dataset.pickle \
-                --write
+python inference.py \
+    --checkpoint_path /home/victor/Github/SpeechEmotionAVLearning/models/fold1/best_model/pytorch_model.bin  \
+    --emotion2vec_dir ./data/emo2vec_features \
+    --hubert_dir ./data/hubert_features \
+    --csv_path ./csv_files/IEMOCAP.csv \
+    --output_path ./data/embeddings.pickle \
+    --device cuda
