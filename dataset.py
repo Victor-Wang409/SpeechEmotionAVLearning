@@ -32,9 +32,9 @@ class EmotionDataset(torch.utils.data.Dataset):
  
         # 将情感标签映射到数值
         self.emotion_map = {
-            'neu': 0, 
+            'ang': 0, 
             'hap': 1,
-            'ang': 2,
+            'neu': 2,
             'sad': 3,
             'sur': 4,
             'fea': 5,
