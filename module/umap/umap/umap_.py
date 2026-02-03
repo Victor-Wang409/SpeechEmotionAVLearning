@@ -3561,7 +3561,7 @@ class UMAP(BaseEstimator):
             loc=0.0, scale=0.01, size=list(init.shape)
         ).astype(np.float32)
 
-        for i in range(num_labels,len(init)):
+        for i in range(len(init)):
             nn_label = label[i]
             init[i] = random_normal[i] + anchors_mapping[nn_label]
 
