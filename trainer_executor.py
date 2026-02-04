@@ -53,7 +53,7 @@ class TrainerExecutor:
             num_groups=8,
             wav2vec_dim=0,
             data2vec_dim=0,
-            num_emotions=8 # 确保类别数正确
+            num_emotions=4 # 确保类别数正确
         )
 
         # 创建模型

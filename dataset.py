@@ -25,17 +25,24 @@ class EmotionDataset(torch.utils.data.Dataset):
             data2vec_dir: data2vec特征目录，None表示不使用
         """
         self.df = pd.read_csv(csv_path)
+        # --- [新增] 关键步骤：只保留4类情绪 ---
+        target_emotions = ['ang', 'hap', 'neu', 'sad']
+        # 过滤掉不属于这4类的所有行
+        self.df = self.df[self.df['Label'].isin(target_emotions)].reset_index(drop=True)
+        print(f"Dataset filtered. Current size: {len(self.df)} samples. Classes: {target_emotions}")
+        
         self.emotion2vec_dir = emotion2vec_dir
         self.hubert_dir = hubert_dir
         self.wav2vec_dir = wav2vec_dir
         self.data2vec_dir = data2vec_dir
  
-        # 将情感标签映射到数值
+        # --- [修改] 映射表只保留4类 ---
         self.emotion_map = {
             'ang': 0, 
             'hap': 1,
             'neu': 2,
-            'sad': 3,
+            'sad': 3
+            # 其他类别已被过滤，不需要映射
         }
 
         self.vad_labels = []
