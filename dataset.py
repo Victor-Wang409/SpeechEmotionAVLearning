@@ -36,10 +36,6 @@ class EmotionDataset(torch.utils.data.Dataset):
             'hap': 1,
             'neu': 2,
             'sad': 3,
-            'sur': 4,
-            'fea': 5,
-            'dis': 6,
-            'con': 7
         }
 
         self.vad_labels = []

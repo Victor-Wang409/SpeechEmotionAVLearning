@@ -2,3 +2,4 @@ data/
 dump/
 models/
 .DS_Store
+av_results.npz

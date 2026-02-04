@@ -23,11 +23,11 @@ def main():
     parser.add_argument('--hubert_dir', type=str, required=True, help='Directory containing hubert features')
     parser.add_argument('--wav2vec_dir', type=str, default=None, help='Directory containing wav2vec features')
     parser.add_argument('--data2vec_dir', type=str, default=None, help='Directory containing data2vec features')
-    parser.add_argument('--num_emotions', type=int, default=5, help='Numbers of emotion')
+    parser.add_argument('--num_emotions', type=int, default=4, help='Numbers of emotion')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training')
     parser.add_argument('--csv_path', type=str, required=True)
-    parser.add_argument('--epochs', type=int, default=80)
-    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--save_dir', type=str, default='./models')
     parser.add_argument('--patience', type=int, default=15)
@@ -102,28 +102,21 @@ def main():
             )
         )
     
-    # 计算并保存所有fold的最终结果
-    avg_v = np.mean([res[0] for res in fold_results])
-    avg_a = np.mean([res[1] for res in fold_results])
-    avg_d = np.mean([res[2] for res in fold_results])
-    avg_all = (avg_v + avg_a + avg_d) / 3
+    # 提取 Accuracy (res[0]) 和 F1 (res[1])
+    # 注意：res[2] 是 trainer_executor 返回的占位符 0.0，这里忽略
+    acc_list = [res[0] for res in fold_results]
+    f1_list = [res[1] for res in fold_results]
     
-    std_v = np.std([res[0] for res in fold_results])
-    std_a = np.std([res[1] for res in fold_results])
-    std_d = np.std([res[2] for res in fold_results])
+    avg_acc = np.mean(acc_list)
+    std_acc = np.std(acc_list)
+    
+    avg_f1 = np.mean(f1_list)
+    std_f1 = np.std(f1_list)
 
-    # [修改 2] 结果统计增加 Accuracy
-    avg_acc = np.mean([res[3] for res in fold_results]) # 假设 res 返回 4 个值
-    std_acc = np.std([res[3] for res in fold_results])
-    
     final_results = (
         f"Final Cross-Validation Results\n"
-        f"Average CCC ± std:\n"
-        f"Valence: {avg_v:.3f} ± {std_v:.3f}\n"
-        f"Arousal: {avg_a:.3f} ± {std_a:.3f}\n"
-        f"Dominance: {avg_d:.3f} ± {std_d:.3f}\n"
-        f"Emotion Accuracy: {avg_acc:.3f} ± {std_acc:.3f}\n" # 新增
-        f"Overall VAD: {avg_all:.3f}"
+        f"Accuracy: {avg_acc:.4f} ± {std_acc:.4f}\n"
+        f"F1 Score: {avg_f1:.4f} ± {std_f1:.4f}\n"
     )
     
     logging.info(f"\n{'='*50}\n{final_results}\n{'='*50}")
