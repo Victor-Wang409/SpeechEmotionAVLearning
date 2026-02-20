@@ -56,12 +56,10 @@ def ld_emodb():
 
 def load_data(name):
     # 默认加载路径
-    path = "embeddings.pickle"
-    if not os.path.exists(path):
-        path = "./data/embeddings.pickle"
+    path = "./dump/inference/tmp/embeddings.pickle"
     
     if not os.path.exists(path):
-        raise FileNotFoundError(f"Could not find embeddings.pickle in current directory or ./dump/tmp/")
+        raise FileNotFoundError(f"Could not find embeddings.pickle in current directory")
 
     print(f"Loading data from {path}...")
     with open(path, 'rb') as f:
@@ -176,7 +174,7 @@ def calc_ccc(x, y):
 
 if __name__ == "__main__":
     # 1. 加载数据
-    data = load_data('auto')
+    data = load_data('iemocap_partial5')
     
     # 2. 运行 AVLearner (3D)
     final_coords = train_inference(data) # shape: (N, 3)

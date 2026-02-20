@@ -167,8 +167,8 @@ class Trainer():
             # argmax 对 logits 和 probability 结果是一样的，所以这里可以直接用 pred_logits
             running_corrects += sum(pred_logits.argmax(1).cpu().numpy() == label.cpu().numpy())
 
-            if i % 10 ==0:
-                print(f"Epoch {epoch}, batch {i}: loss: {loss.item()}")
+            # if i % 10 ==0:
+            #     print(f"Epoch {epoch}, batch {i}: loss: {loss.item()}")
         
         epoch_loss = running_loss / len(dataloader.dataset)
         epoch_acc = running_corrects / len(dataloader.dataset)
@@ -319,7 +319,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=1e-5, help='learning rate for optimizer')
     parser.add_argument('--reg-lr', type=float, default=1e-6, help='learning rate for optimizer')
     parser.add_argument('--num-epochs', type=int, default=21, help='number of epochs for training')
-    parser.add_argument('--batch-size', type=int, default=16, help='batch size for training')
+    parser.add_argument('--batch-size', type=int, default=32, help='batch size for training')
 
     parser.add_argument('--data', type=str, default='/data/audio_dataset.pickle', help='path to training data')
     parser.add_argument('--num-labels', type=int, default=5, help='number of categories in data')
