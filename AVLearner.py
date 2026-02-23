@@ -56,7 +56,7 @@ def ld_emodb():
 
 def load_data(name):
     # 默认加载路径
-    path = "./dump/inference/tmp/embeddings.pickle"
+    path = "./dump/tmp/embeddings.pickle"
     
     if not os.path.exists(path):
         raise FileNotFoundError(f"Could not find embeddings.pickle in current directory")
