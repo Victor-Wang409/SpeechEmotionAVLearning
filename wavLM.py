@@ -119,7 +119,7 @@ class EmotionClassifier(nn.Module):
         proj_emb = F.relu(self.proj(final_emb)) # 加入 ReLU 增加非线性表达
         pred = self.out(proj_emb)
         
-        return pred, final_emb
+        return pred, final_emb, dynamic_weights
 
 class Trainer():
     def __init__(self, config):
@@ -201,7 +201,7 @@ class Trainer():
             hiddens = outputs.hidden_states
             feature_length = self.get_feature_seq_length(attention_mask)
 
-            pred_logits, final_emb = self.clf(hiddens, feature_length) 
+            pred_logits, final_emb, _ = self.clf(hiddens, feature_length)
             label = torch.tensor(batch['emotion'], device=device)
             
             loss = self.loss(pred_logits, label) 
@@ -254,7 +254,7 @@ class Trainer():
             
             hiddens = outputs.hidden_states
             feature_length = self.get_feature_seq_length(attention_mask)
-            pred, final_emb = self.clf(hiddens, feature_length)
+            pred_logits, final_emb, _ = self.clf(hiddens, feature_length)
             pred = F.softmax(pred, dim=1)
 
             label = torch.tensor(batch['emotion'], device=device)
@@ -283,6 +283,7 @@ class Trainer():
 
         embeddings = []
         predictions = []
+        all_weights = [] # 【新增】：用于收集所有样本的动态权重
 
         for batch in tqdm(dataloader):
             input_dict = batch['audio']
@@ -293,19 +294,23 @@ class Trainer():
                 outputs = self.wavlm(input_values=input_values, attention_mask=attention_mask, output_hidden_states=True)
                 hiddens = outputs.hidden_states
                 feature_length = self.get_feature_seq_length(attention_mask)
-                pred, final_emb = self.clf(hiddens, feature_length)
+                pred, final_emb, batch_weights = self.clf(hiddens, feature_length)
                 pred = F.softmax(pred, dim=1)
                 
             predictions.append(pred.argmax(1).cpu().numpy())
             embeddings += [final_emb.detach().cpu().numpy()]
+            # batch_weights 形状是 (batch_size, layer_num, 1)，去掉最后一维并转为 numpy
+            all_weights.append(batch_weights.squeeze(-1).detach().cpu().numpy())
         
         predictions = np.concatenate(predictions)
         embeddings = np.concatenate(embeddings)
+        all_weights = np.concatenate(all_weights, axis=0) # 【新增】：拼接成 (总样本数, 25) 的矩阵
+
         status = ["train"] * len(self.train_data) + ["val"] * len(self.val_data) + ["test"] * len(self.test_data)
         status = np.array(status)
         
         # 将完整包含 V, A, D 的 dataset 对象传入
-        save_iemocap_partial(self.config.save_path, embeddings, status, predictions, dataset)
+        save_iemocap_partial(self.config.save_path, embeddings, status, predictions, dataset, all_weights)
     
     def save_model(self, epoch, type='last_epoch'):
         if self.write:
@@ -320,9 +325,23 @@ class Trainer():
         self.clf.load_state_dict(checkpoint['model_state_dict'])
 
 # 格式原封不动：依然直接使用 dataset['V'] 等语法，确保 AVLearner 读取完全一致
-def save_iemocap_partial(dump_path, embeddings, status, pred, dataset):
-    save_data = {"embeddings": embeddings, "emotion": dataset['emotion'], "pred_emotion": pred,
-                 "V": dataset['V'], "A": dataset['A'], "D": dataset['D'], "status": status}
+# 【修改点】：增加 dynamic_weights 参数，并设置默认值为 None 防止报错
+def save_iemocap_partial(dump_path, embeddings, status, pred, dataset, dynamic_weights=None):
+    save_data = {
+        "embeddings": embeddings, 
+        "emotion": dataset['emotion'], 
+        "pred_emotion": pred,
+        "status": status
+    }
+    # 保存权重矩阵
+    if dynamic_weights is not None:
+        save_data["dynamic_weights"] = dynamic_weights
+        
+    if 'V' in dataset[0]:
+        save_data["V"] = [item['V'] for item in dataset]
+        save_data["A"] = [item['A'] for item in dataset]
+        save_data["D"] = [item['D'] for item in dataset]
+        
     with open(os.path.join(dump_path, "embeddings.pickle"), "wb") as f:
         pickle.dump(save_data, f)
 
